@@ -7,7 +7,7 @@ import 'add_edit_password_screen.dart';
 class PasswordDetailsScreen extends StatefulWidget {
   final PasswordModel password;
 
-  const PasswordDetailsScreen({Key? key, required this.password}) : super(key: key);
+  const PasswordDetailsScreen({super.key, required this.password});
 
   @override
   State<PasswordDetailsScreen> createState() => _PasswordDetailsScreenState();

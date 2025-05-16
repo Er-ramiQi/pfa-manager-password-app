@@ -6,7 +6,7 @@ import '../utils/password_generator.dart';
 class AddEditPasswordScreen extends StatefulWidget {
   final PasswordModel? password;
 
-  const AddEditPasswordScreen({Key? key, this.password}) : super(key: key);
+  const AddEditPasswordScreen({super.key, this.password});
 
   @override
   State<AddEditPasswordScreen> createState() => _AddEditPasswordScreenState();

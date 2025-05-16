@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../utils/password_generator.dart';
 
 class PasswordGeneratorScreen extends StatefulWidget {
-  const PasswordGeneratorScreen({Key? key}) : super(key: key);
+  const PasswordGeneratorScreen({super.key});
 
   @override
   State<PasswordGeneratorScreen> createState() => _PasswordGeneratorScreenState();

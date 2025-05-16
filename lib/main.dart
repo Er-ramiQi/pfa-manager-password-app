@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/auth/register_screen.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +32,7 @@ class MyApp extends StatelessWidget {
 }
 
 class AuthCheckScreen extends StatefulWidget {
-  const AuthCheckScreen({Key? key}) : super(key: key);
+  const AuthCheckScreen({super.key});
 
   @override
   State<AuthCheckScreen> createState() => _AuthCheckScreenState();

@@ -1,10 +1,14 @@
+// lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
 import '../../db/database_helper.dart';
+import '../../utils/biometric_auth.dart';
 import '../home_screen.dart';
+import '../profile_settings_screen.dart';
 import 'register_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -15,8 +19,48 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
 
   final _databaseHelper = DatabaseHelper();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometricAvailability();
+  }
+
+  Future<void> _checkBiometricAvailability() async {
+    final isSupported = await BiometricAuth.isDeviceSupported();
+    final biometrics = await BiometricAuth.getAvailableBiometrics();
+    final isEnabled = await BiometricAuth.isBiometricEnabled();
+
+    setState(() {
+      _biometricAvailable = isSupported && biometrics.isNotEmpty;
+      _biometricEnabled = isEnabled;
+    });
+
+    // Si la biométrie est activée, tenter l'authentification automatiquement
+    if (_biometricAvailable && _biometricEnabled) {
+      _authenticateWithBiometrics();
+    }
+  }
+
+  Future<void> _authenticateWithBiometrics() async {
+    final authenticated = await BiometricAuth.authenticate();
+    if (authenticated) {
+      final prefs = await SharedPreferences.getInstance();
+      // Enregistrer que l'utilisateur est connecté
+      await prefs.setBool('isLoggedIn', true);
+
+      // Redirection vers l'écran principal
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
+    }
+  }
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
@@ -35,22 +79,32 @@ class _LoginScreenState extends State<LoginScreen> {
         });
 
         if (isAuthenticated) {
+          final prefs = await SharedPreferences.getInstance();
+          // Enregistrer que l'utilisateur est connecté
+          await prefs.setBool('isLoggedIn', true);
+
           // Navigation vers l'écran principal
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Email ou mot de passe incorrect')),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Email ou mot de passe incorrect')),
+            );
+          }
         }
       } catch (e) {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: ${e.toString()}')),
+          );
+        }
       }
     }
   }
@@ -67,6 +121,19 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connexion'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+              ).then((_) {
+                // Rafraîchir l'état de la biométrie lorsque l'utilisateur revient
+                _checkBiometricAvailability();
+              });
+            },
+          ),
+        ],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -131,6 +198,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         )
                       : const Text('Se connecter'),
                 ),
+                if (_biometricAvailable && _biometricEnabled) ...[
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _authenticateWithBiometrics,
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Se connecter avec la biométrie'),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
