@@ -1,7 +1,7 @@
-// lib/screens/profile_settings_screen.dart
+// lib/screens/profile_settings_screen.dart (Updated)
 import 'package:flutter/material.dart';
-import 'package:local_auth/local_auth.dart'; // Ajout de cet import pour BiometricType
-import '../utils/biometric_auth.dart';
+import '../services/auth_service.dart';
+import 'auth/setup_2fa_screen.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
   const ProfileSettingsScreen({super.key});
@@ -11,10 +11,9 @@ class ProfileSettingsScreen extends StatefulWidget {
 }
 
 class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
-  bool _isBiometricAvailable = false;
-  bool _isBiometricEnabled = false;
-  bool _isLoading = true;
-  List<String> _availableBiometrics = [];
+  bool _isLoading = false;
+  bool _otpEnabled = false;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -27,61 +26,81 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       _isLoading = true;
     });
 
-    // Vérifier si l'appareil supporte l'authentification biométrique
-    final isSupported = await BiometricAuth.isDeviceSupported();
-    
-    if (isSupported) {
-      // Récupérer les types d'authentification disponibles
-      final biometrics = await BiometricAuth.getAvailableBiometrics();
-      final biometricsList = biometrics.map((type) {
-        switch (type) {
-          case BiometricType.face:
-            return 'Reconnaissance faciale';
-          case BiometricType.fingerprint:
-            return 'Empreinte digitale';
-          case BiometricType.iris:
-            return 'Iris';
-          case BiometricType.strong:
-            return 'Authentification forte';
-          case BiometricType.weak:
-            return 'Authentification faible';
-          default:
-            return 'Inconnu';
-        }
-      }).toList();
-      
-      // Vérifier si l'authentification biométrique est activée
-      final isEnabled = await BiometricAuth.isBiometricEnabled();
-      
-      setState(() {
-        _isBiometricAvailable = biometrics.isNotEmpty;
-        _availableBiometrics = biometricsList;
-        _isBiometricEnabled = isEnabled;
-      });
-    }
-
+    // Here you would actually check if 2FA is enabled for the user
+    // This would be a backend call, but for now we'll just set it to false
     setState(() {
+      _otpEnabled = false;
       _isLoading = false;
     });
   }
 
-  Future<void> _toggleBiometric(bool value) async {
-    final success = await BiometricAuth.setBiometricEnabled(value);
-    if (success) {
+  Future<void> _setup2FA() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const Setup2FAScreen()),
+    );
+
+    if (result == true) {
       setState(() {
-        _isBiometricEnabled = value;
+        _otpEnabled = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Authentification biométrique ${value ? 'activée' : 'désactivée'}'),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors de la modification des paramètres'),
-        ),
-      );
+    }
+  }
+
+  Future<void> _disable2FA() async {
+    // Show confirmation dialog
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: const Text('Êtes-vous sûr de vouloir désactiver l\'authentification à deux facteurs?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Désactiver'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final success = await _authService.toggle2FA(false, '');
+      if (success) {
+        setState(() {
+          _otpEnabled = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('L\'authentification à deux facteurs a été désactivée')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur lors de la désactivation de l\'authentification à deux facteurs')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}')),
+        );
+      }
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -110,14 +129,25 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        SwitchListTile(
-                          title: const Text('Authentification biométrique'),
-                          subtitle: Text(_isBiometricAvailable
-                              ? 'Utiliser ${_availableBiometrics.join(', ')} pour vous connecter'
-                              : 'Non disponible sur cet appareil'),
-                          value: _isBiometricEnabled,
-                          onChanged: _isBiometricAvailable ? _toggleBiometric : null,
-                          secondary: const Icon(Icons.fingerprint),
+                        // 2FA settings
+                        ListTile(
+                          title: const Text('Authentification à deux facteurs'),
+                          subtitle: Text(_otpEnabled
+                              ? 'Activée'
+                              : 'Désactivée - Cliquez pour configurer'),
+                          trailing: _otpEnabled
+                              ? TextButton(
+                                  onPressed: _disable2FA,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                  ),
+                                  child: const Text('Désactiver'),
+                                )
+                              : TextButton(
+                                  onPressed: _setup2FA,
+                                  child: const Text('Configurer'),
+                                ),
+                          leading: const Icon(Icons.security),
                         ),
                       ],
                     ),

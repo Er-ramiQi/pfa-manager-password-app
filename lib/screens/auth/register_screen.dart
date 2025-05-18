@@ -1,5 +1,6 @@
+// lib/screens/auth/register_screen.dart (Updated)
 import 'package:flutter/material.dart';
-import '../../db/database_helper.dart';
+import '../../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -15,7 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
 
-  final _databaseHelper = DatabaseHelper();
+  final _authService = AuthService();
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
@@ -31,7 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       try {
-        await _databaseHelper.insertUser(
+        final success = await _authService.register(
           _emailController.text,
           _passwordController.text,
         );
@@ -40,18 +41,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inscription réussie! Vous pouvez vous connecter')),
-        );
-
-        Navigator.of(context).pop();
+        if (success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Inscription réussie! Vous pouvez vous connecter')),
+            );
+            Navigator.of(context).pop();
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Erreur lors de l\'inscription')),
+            );
+          }
+        }
       } catch (e) {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: ${e.toString()}')),
+          );
+        }
       }
     }
   }

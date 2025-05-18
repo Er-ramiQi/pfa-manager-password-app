@@ -1,5 +1,6 @@
+// lib/main.dart (Updated)
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'services/auth_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
 
@@ -41,6 +42,7 @@ class AuthCheckScreen extends StatefulWidget {
 class _AuthCheckScreenState extends State<AuthCheckScreen> {
   bool _isLoading = true;
   bool _isLoggedIn = false;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -49,8 +51,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final isLoggedIn = await _authService.isLoggedIn();
     
     setState(() {
       _isLoggedIn = isLoggedIn;
